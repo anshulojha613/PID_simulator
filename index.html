@@ -1,0 +1,652 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PID Controller Simulator</title>
+    <link rel="stylesheet" href="styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&family=Roboto+Mono&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="container">
+        <h1>PID Controller Simulator</h1>
+        <p class="subtitle">Interactive Balancing Robot Simulation</p>
+        
+        <div class="main-content">
+            <!-- Simulation Canvas -->
+            <div class="simulation-panel">
+                <canvas id="simulationCanvas" width="800" height="600"></canvas>
+                <div class="simulation-info">
+                    <div class="status-display">
+                        <div class="status-item">
+                            <span class="label">Angle:</span>
+                            <span id="angleDisplay">0.0°</span>
+                        </div>
+                        <div class="status-item">
+                            <span class="label">Error:</span>
+                            <span id="errorDisplay">0.0</span>
+                        </div>
+                        <div class="status-item">
+                            <span class="label">Output:</span>
+                            <span id="outputDisplay">0.0</span>
+                        </div>
+                        <div class="status-item">
+                            <span class="label">Stability:</span>
+                            <span id="stabilityDisplay">Stable</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Control Panel -->
+            <div class="control-panel">
+                <h2>PID Parameters</h2>
+                
+                <!-- Proportional Control -->
+                <div class="control-group">
+                    <label for="kpSlider">Proportional (Kp)</label>
+                    <div class="slider-container">
+                        <input type="range" id="kpSlider" min="0" max="10" step="0.1" value="1.0">
+                        <span id="kpValue">1.0</span>
+                    </div>
+                    <p class="description">Controls immediate response to current error</p>
+                </div>
+                
+                <!-- Integral Control -->
+                <div class="control-group">
+                    <label for="kiSlider">Integral (Ki)</label>
+                    <div class="slider-container">
+                        <input type="range" id="kiSlider" min="0" max="5" step="0.01" value="0.1">
+                        <span id="kiValue">0.1</span>
+                    </div>
+                    <p class="description">Eliminates steady-state error over time</p>
+                </div>
+                
+                <!-- Derivative Control -->
+                <div class="control-group">
+                    <label for="kdSlider">Derivative (Kd)</label>
+                    <div class="slider-container">
+                        <input type="range" id="kdSlider" min="0" max="2" step="0.01" value="0.05">
+                        <span id="kdValue">0.05</span>
+                    </div>
+                    <p class="description">Predicts future error and dampens oscillations</p>
+                </div>
+                
+                <!-- Simulation Controls -->
+                <div class="simulation-controls">
+                    <h3>Simulation Controls</h3>
+                    <button id="startBtn" class="control-btn primary">Start</button>
+                    <button id="pauseBtn" class="control-btn">Pause</button>
+                    <button id="resetBtn" class="control-btn">Reset</button>
+                    <button id="disturbBtn" class="control-btn warning">Add Disturbance</button>
+                </div>
+                
+                <!-- Presets -->
+                <div class="presets">
+                    <h3>Presets</h3>
+                    <button class="preset-btn" data-preset="stable">Stable</button>
+                    <button class="preset-btn" data-preset="oscillating">Oscillating</button>
+                    <button class="preset-btn" data-preset="overdamped">Overdamped</button>
+                    <button class="preset-btn" data-preset="underdamped">Underdamped</button>
+                </div>
+                
+                <!-- Information -->
+                <div class="info-panel">
+                    <h3>How PID Works</h3>
+                    <ul>
+                        <li><strong>P (Proportional):</strong> Responds to current error magnitude</li>
+                        <li><strong>I (Integral):</strong> Accumulates error over time to eliminate offset</li>
+                        <li><strong>D (Derivative):</strong> Predicts future error based on rate of change</li>
+                    </ul>
+                    <p><strong>Goal:</strong> Keep the robot balanced at 0° by adjusting motor torque</p>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Performance Graph -->
+        <div class="graph-panel">
+            <h2>Performance Graph</h2>
+            <canvas id="graphCanvas" width="1000" height="200"></canvas>
+            <div class="graph-controls">
+                <button id="clearGraphBtn">Clear Graph</button>
+                <label>
+                    <input type="checkbox" id="showSetpoint" checked> Show Setpoint
+                </label>
+                <label>
+                    <input type="checkbox" id="showError" checked> Show Error
+                </label>
+                <label>
+                    <input type="checkbox" id="showOutput" checked> Show Output
+                </label>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Load scripts in order with proper error handling -->
+    <script>
+        // Error handler for script loading
+        function handleScriptError(script) {
+            return function(event) {
+                console.error('Error loading script:', script.src, event);
+                alert('Error loading ' + script.src + '. Please check the console for details.');
+            };
+        }
+        
+        // Function to load scripts in order
+        function loadScripts(scripts, callback) {
+            if (scripts.length === 0) {
+                if (callback) callback();
+                return;
+            }
+            
+            var script = document.createElement('script');
+            script.src = scripts[0];
+            script.onload = function() {
+                console.log('Loaded:', scripts[0]);
+                loadScripts(scripts.slice(1), callback);
+            };
+            script.onerror = handleScriptError(script);
+            
+            document.head.appendChild(script);
+        }
+        
+        // Load all scripts in order
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('DOM fully loaded, starting script loading...');
+            loadScripts([
+                'pid-controller-enhanced.js',
+                'robot-simulation-fixed.js',
+                'graph.js',
+                'main.js'
+            ], function() {
+                console.log('All scripts loaded successfully');
+                // Initialize the app after all scripts are loaded
+                if (window.PIDSimulatorApp) {
+                    window.pidSimulator = new PIDSimulatorApp();
+                } else {
+                    console.error('PIDSimulatorApp not found');
+                }
+            });
+        });
+    </script>
+    <script src="graph.js"></script>
+    <script>
+        // This script will run after all the above scripts have loaded
+        console.log('All scripts should be loaded now');
+        
+        // Error handler for uncaught exceptions
+        window.addEventListener('error', function(event) {
+            console.error('Unhandled error:', event.error);
+            alert('An error occurred: ' + event.message);
+        });
+        
+        // Verify global objects are available
+        console.log('Checking for required global objects...');
+        console.log('PIDController:', typeof window.PIDController);
+        console.log('BalancingRobot:', typeof window.BalancingRobot);
+        
+        // Add a small delay to ensure all scripts are fully loaded
+        setTimeout(function() {
+            console.log('Delayed check after script loading');
+            console.log('PIDController:', typeof window.PIDController);
+            console.log('BalancingRobot:', typeof window.BalancingRobot);
+            
+            // If objects are still not available, show an error
+            if (typeof window.PIDController === 'undefined' || typeof window.BalancingRobot === 'undefined') {
+                console.error('Required objects not found in global scope');
+                alert('Error: Required simulation components not loaded. Please check the console for details.');
+                return;
+            }
+            
+            console.log('All required objects are available');
+            initializeSimulation();
+        }, 100);
+        
+        function initializeSimulation() {
+            console.log('Initializing simulation...');
+            
+            // Get DOM elements
+            const canvas = document.getElementById('simulationCanvas');
+            const graphCanvas = document.getElementById('graphCanvas');
+            const startBtn = document.getElementById('startBtn');
+            const pauseBtn = document.getElementById('pauseBtn');
+            const resetBtn = document.getElementById('resetBtn');
+            const kpSlider = document.getElementById('kpSlider');
+            const kiSlider = document.getElementById('kiSlider');
+            const kdSlider = document.getElementById('kdSlider');
+            const kpValue = document.getElementById('kpValue');
+            const kiValue = document.getElementById('kiValue');
+            const kdValue = document.getElementById('kdValue');
+            const angleDisplay = document.getElementById('angleDisplay');
+            const errorDisplay = document.getElementById('errorDisplay');
+            const outputDisplay = document.getElementById('outputDisplay');
+            const stabilityDisplay = document.getElementById('stabilityDisplay');
+            
+            if (!canvas) {
+                console.error('Canvas element not found');
+                return;
+            }
+            
+            console.log('Canvas element found:', canvas);
+            console.log('Canvas dimensions:', canvas.width, 'x', canvas.height);
+            
+            // Initialize the simulation components
+            try {
+                // Create a new instance of the PID controller
+                const pidController = new window.PIDController(
+                    parseFloat(kpSlider.value),
+                    parseFloat(kiSlider.value),
+                    parseFloat(kdSlider.value)
+                );
+                
+                console.log('PID Controller created:', pidController);
+                
+                // Create a new instance of the balancing robot
+                const robot = new window.BalancingRobot(canvas, pidController);
+                console.log('BalancingRobot created:', robot);
+                
+                // Set up the animation loop
+                let lastTime = 0;
+                let isPaused = true;
+                let animationId = null;
+                
+                function updateDisplays() {
+                    angleDisplay.textContent = (robot.angle * 180 / Math.PI).toFixed(1) + '°';
+                    errorDisplay.textContent = robot.error?.toFixed(3) || '0.000';
+                    outputDisplay.textContent = robot.output?.toFixed(3) || '0.000';
+                    stabilityDisplay.textContent = robot.isStable ? 'Stable' : 'Unstable';
+                    
+                    // Update slider values
+                    kpValue.textContent = kpSlider.value;
+                    kiValue.textContent = kiSlider.value;
+                    kdValue.textContent = kdSlider.value;
+                }
+                
+                function animate(currentTime) {
+                    if (isPaused) return;
+                    
+                    // Calculate delta time in seconds
+                    const deltaTime = Math.min((currentTime - lastTime) / 1000, 0.05);
+                    lastTime = currentTime;
+                    
+                    try {
+                        // Update the simulation
+                        robot.update(deltaTime);
+                        
+                        // Update the graph
+                        if (window.updateGraph) {
+                            window.updateGraph(robot.angle, robot.output, robot.error);
+                        }
+                        
+                        // Update the displays
+                        updateDisplays();
+                        
+                        // Render the simulation
+                        robot.render();
+                        
+                    } catch (error) {
+                        console.error('Error in animation loop:', error);
+                        isPaused = true;
+                        alert('Simulation error: ' + error.message);
+                        return;
+                    }
+                    
+                    // Continue the animation loop
+                    animationId = requestAnimationFrame(animate);
+                }
+                
+                // Set up control buttons
+                startBtn.addEventListener('click', function() {
+                    if (isPaused) {
+                        isPaused = false;
+                        lastTime = performance.now();
+                        animate(lastTime);
+                    }
+                });
+                
+                pauseBtn.addEventListener('click', function() {
+                    isPaused = true;
+                    if (animationId) {
+                        cancelAnimationFrame(animationId);
+                        animationId = null;
+                    }
+                });
+                
+                resetBtn.addEventListener('click', function() {
+                    isPaused = true;
+                    if (animationId) {
+                        cancelAnimationFrame(animationId);
+                        animationId = null;
+                    }
+                    robot.reset();
+                    if (window.resetGraph) {
+                        window.resetGraph();
+                    }
+                    robot.render();
+                    updateDisplays();
+                });
+                
+                // Set up slider event listeners
+                function updatePIDValues() {
+                    pidController.setGains(
+                        parseFloat(kpSlider.value),
+                        parseFloat(kiSlider.value),
+                        parseFloat(kdSlider.value)
+                    );
+                    updateDisplays();
+                }
+                
+                kpSlider.addEventListener('input', updatePIDValues);
+                kiSlider.addEventListener('input', updatePIDValues);
+                kdSlider.addEventListener('input', updatePIDValues);
+                
+                // Set up disturbance button
+                document.getElementById('disturbBtn').addEventListener('click', function() {
+                    if (robot) {
+                        robot.applyDisturbance(5 * (Math.random() > 0.5 ? 1 : -1));
+                    }
+                });
+                
+                // Clear graph button
+                document.getElementById('clearGraphBtn')?.addEventListener('click', function() {
+                    if (window.resetGraph) {
+                        window.resetGraph();
+                    }
+                });
+                
+                // Handle window resize
+                function handleResize() {
+                    // Update canvas dimensions if needed
+                    if (window.updateGraphSize) {
+                        window.updateGraphSize();
+                    }
+                    robot.render();
+                }
+                
+                window.addEventListener('resize', handleResize);
+                
+                // Initial render and display update
+                robot.render();
+                updateDisplays();
+                
+            } catch (error) {
+                console.error('Error initializing simulation:', error);
+                alert('Failed to initialize simulation: ' + error.message);
+            }
+        }
+        // Debug logging
+        console.log('DOM fully loaded');
+        
+        // Error handler for uncaught exceptions
+        window.onerror = function(message, source, lineno, colno, error) {
+            console.error('Global error:', {message, source, lineno, colno, error});
+            return true; // Prevent default handler
+        };
+        
+        document.addEventListener('DOMContentLoaded', () => {
+            console.log('DOMContentLoaded event fired');
+            // Get DOM elements
+            const canvas = document.getElementById('simulationCanvas');
+            
+            if (!canvas) {
+                console.error('Could not find simulation canvas element');
+                return;
+            }
+            
+            console.log('Canvas element found:', canvas);
+            console.log('Canvas dimensions:', canvas.width, 'x', canvas.height);
+            
+            // Force canvas size to match its display size
+            const canvasContainer = canvas.parentElement;
+            canvas.width = canvasContainer.clientWidth;
+            canvas.height = canvasContainer.clientHeight;
+            console.log('Canvas dimensions after resize:', canvas.width, 'x', canvas.height);
+            
+            // Set canvas style to ensure it's visible
+            canvas.style.border = '2px solid red'; // Add border to make canvas visible
+            canvas.style.display = 'block'; // Ensure canvas is visible
+            const kpSlider = document.getElementById('kpSlider');
+            const kiSlider = document.getElementById('kiSlider');
+            const kdSlider = document.getElementById('kdSlider');
+            const kpValue = document.getElementById('kpValue');
+            const kiValue = document.getElementById('kiValue');
+            const kdValue = document.getElementById('kdValue');
+            const startBtn = document.getElementById('startBtn');
+            const pauseBtn = document.getElementById('pauseBtn');
+            const resetBtn = document.getElementById('resetBtn');
+            const disturbBtn = document.getElementById('disturbBtn');
+            const angleDisplay = document.getElementById('angleDisplay');
+            const errorDisplay = document.getElementById('errorDisplay');
+            const outputDisplay = document.getElementById('outputDisplay');
+            const stabilityDisplay = document.getElementById('stabilityDisplay');
+            
+            console.log('Initializing simulation components...');
+            
+            // Initialize simulation and controller with better defaults for Segway
+            let robot, pid;
+            try {
+                console.log('Creating BalancingRobot instance...');
+                robot = new BalancingRobot(canvas);
+                console.log('BalancingRobot created successfully');
+                
+                console.log('Creating PIDController instance...');
+                pid = new PIDController(
+                    parseFloat(kpSlider.value) || 2.5,
+                    parseFloat(kiSlider.value) || 0.1,
+                    parseFloat(kdSlider.value) || 0.8
+                );
+                console.log('PIDController created successfully');
+                
+                // Set initial slider values to match the controller
+                kpSlider.value = pid.kp;
+                kiSlider.value = pid.ki;
+                kdSlider.value = pid.kd;
+                console.log('Slider values initialized');
+            } catch (error) {
+                console.error('Error initializing simulation:', error);
+                alert('Failed to initialize simulation. Please check console for details.');
+                return;
+            }
+            
+            // Setpoint is 0 (upright position)
+            const setpoint = 0;
+            pid.setSetpoint(setpoint);
+            
+            // Animation variables
+            let animationId = null;
+            let lastTime = 0;
+            let isPaused = false;
+            
+            // Update slider value displays
+            function updateSliderValues() {
+                kpValue.textContent = kpSlider.value;
+                kiValue.textContent = kiSlider.value;
+                kdValue.textContent = kdSlider.value;
+                
+                // Update PID controller parameters
+                pid.setParameters(
+                    parseFloat(kpSlider.value),
+                    parseFloat(kiSlider.value),
+                    parseFloat(kdSlider.value)
+                );
+            }
+            
+            // Make sliders respond to both click and drag
+            [kpSlider, kiSlider, kdSlider].forEach(slider => {
+                slider.addEventListener('input', updateSliderValues);
+                slider.addEventListener('change', updateSliderValues);
+            });
+            
+            // Initial slider value update
+            updateSliderValues();
+            
+            // Animation loop
+            function animate(currentTime) {
+                if (isPaused) return;
+                
+                // Calculate delta time in seconds
+                const deltaTime = Math.min((currentTime - lastTime) / 1000, 0.05); // Cap at 50ms to prevent large jumps
+                lastTime = currentTime;
+                
+                try {
+                    // Calculate control output using PID
+                    const output = pid.calculate(setpoint, robot.angle, deltaTime);
+                    
+                    // Apply control output to robot
+                    robot.setTorque(output);
+                    
+                    // Update robot physics
+                    robot.update();
+                    
+                    // Render the scene
+                    robot.render();
+                    
+                    // Update displays with more precision for debugging
+                    angleDisplay.textContent = robot.getAngleDegrees().toFixed(2) + '°';
+                    errorDisplay.textContent = (setpoint - robot.angle).toFixed(4);
+                    outputDisplay.textContent = output.toFixed(2);
+                    
+                    // Update stability indicator with more detailed status
+                    const stability = pid.getStabilityStatus();
+                    stabilityDisplay.textContent = stability;
+                    
+                    // Set appropriate class based on stability
+                    if (stability.includes('Very') || stability.includes('Stable')) {
+                        stabilityDisplay.className = 'status-value stable';
+                    } else if (stability === 'Settling') {
+                        stabilityDisplay.className = 'status-value warning';
+                    } else {
+                        stabilityDisplay.className = 'status-value unstable';
+                    }
+                    
+                    // Update slider value displays
+                    updateSliderValues();
+                    
+                } catch (error) {
+                    console.error('Error in animation loop:', error);
+                    // Try to recover by resetting the simulation
+                    resetSimulation();
+                }
+                
+                // Continue animation loop
+                animationId = requestAnimationFrame(animate);
+            }
+            
+            // Reset simulation function
+            function resetSimulation() {
+                // Reset robot and controller
+                robot.reset();
+                pid.reset();
+                
+                // Reset displays
+                angleDisplay.textContent = '0.00°';
+                errorDisplay.textContent = '0.0000';
+                outputDisplay.textContent = '0.00';
+                stabilityDisplay.textContent = 'Initializing';
+                stabilityDisplay.className = 'status-value';
+                
+                // Restart animation if not paused
+                if (!isPaused) {
+                    if (animationId) {
+                        cancelAnimationFrame(animationId);
+                    }
+                    lastTime = performance.now();
+                    animate(lastTime);
+                }
+            }
+            
+            // Control buttons
+            startBtn.addEventListener('click', () => {
+                if (isPaused) {
+                    isPaused = false;
+                    lastTime = performance.now();
+                    if (!animationId) {
+                        animate(lastTime);
+                    }
+                }
+            });
+            
+            pauseBtn.addEventListener('click', () => {
+                isPaused = true;
+                if (animationId) {
+                    cancelAnimationFrame(animationId);
+                    animationId = null;
+                }
+            });
+            
+            resetBtn.addEventListener('click', resetSimulation);
+            
+            disturbBtn.addEventListener('click', () => {
+                // Apply a random disturbance force
+                const force = (Math.random() - 0.5) * 10; // Random force between -5 and 5
+                robot.applyDisturbance(force);
+            });
+            
+            // Start the animation
+            // Test canvas rendering
+            function testCanvas() {
+                console.log('Testing canvas rendering...');
+                const testCtx = canvas.getContext('2d');
+                if (!testCtx) {
+                    console.error('Failed to get 2D context for test');
+                    return false;
+                }
+                
+                // Draw a test pattern
+                testCtx.fillStyle = '#ff0000';
+                testCtx.fillRect(10, 10, 50, 50);
+                
+                testCtx.fillStyle = '#00ff00';
+                testCtx.fillRect(70, 10, 50, 50);
+                
+                testCtx.fillStyle = '#0000ff';
+                testCtx.fillRect(130, 10, 50, 50);
+                
+                console.log('Test pattern drawn to canvas');
+                return true;
+            }
+            
+            // Run the test
+            if (!testCanvas()) {
+                alert('Canvas test failed. Check console for details.');
+                return;
+            }
+            
+            // Start the animation if test passed
+            console.log('Starting animation loop...');
+            try {
+                lastTime = performance.now();
+                console.log('Initial animation frame requested');
+                requestAnimationFrame(animate);
+            } catch (error) {
+                console.error('Error starting animation:', error);
+                alert('Failed to start animation. Please check console for details.');
+            }
+            
+            // Handle window resize
+            window.addEventListener('resize', () => {
+                // Adjust canvas size
+                const container = canvas.parentElement;
+                canvas.width = container.clientWidth;
+                canvas.height = container.clientHeight;
+                
+                // Update robot's base position
+                robot.baseY = canvas.height - 100;
+                robot.baseX = canvas.width / 2;
+                
+                // Redraw
+                if (!animationId && !isPaused) {
+                    robot.render();
+                }
+            });
+            
+            // Initial canvas size setup
+            const container = canvas.parentElement;
+            canvas.width = container.clientWidth;
+            canvas.height = container.clientHeight;
+            robot.baseY = canvas.height - 100;
+            robot.baseX = canvas.width / 2;
+        });
+    </script>
+</body>
+</html>
